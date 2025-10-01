@@ -105,8 +105,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Contact 📱
 
-Sahil Gupta - [@SG2407](https://github.com/SG2407)
-
 Project Link: [https://github.com/SG2407/Arogyan](https://github.com/SG2407/Arogyan)
 
 ---
