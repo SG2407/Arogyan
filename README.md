@@ -1,5 +1,5 @@
 # Aarogyan:
-###A Unified AI-Powered Medical andWellness Platform 🏥
+### A Unified AI-Powered Medical andWellness Platform 🏥
 
 A modern healthcare assistance platform built with Flutter, designed to connect patients with doctors through an intuitive and accessible interface.
 
