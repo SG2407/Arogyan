@@ -1,5 +1,6 @@
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 
 class SpeechService {
   static final SpeechService _instance = SpeechService._internal();
@@ -7,7 +8,12 @@ class SpeechService {
   SpeechService._internal();
 
   final stt.SpeechToText _speech = stt.SpeechToText();
+  final FlutterTts _flutterTts = FlutterTts();
   bool _isInitialized = false;
+
+  Future<void> speak(String text) async {
+    await _flutterTts.speak(text);
+  }
 
   Future<bool> initialize() async {
     if (_isInitialized) return true;

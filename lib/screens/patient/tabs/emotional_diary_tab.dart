@@ -1,93 +1,200 @@
 import 'package:flutter/material.dart';
+import 'package:aarogyan/services/ai/ai_service.dart';
+import 'package:aarogyan/services/speech/speech_service.dart';
+import 'package:aarogyan/widgets/chat_message.dart';
 
-class EmotionalDiaryTab extends StatelessWidget {
+class EmotionalDiaryTab extends StatefulWidget {
   const EmotionalDiaryTab({Key? key}) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+  _EmotionalDiaryTabState createState() => _EmotionalDiaryTabState();
+}
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
+class _EmotionalDiaryTabState extends State<EmotionalDiaryTab> {
+  final _messageController = TextEditingController();
+  final List<Map<String, dynamic>> _messages = [];
+  bool _isListening = false;
+  bool _isLoading = false;
+  final SpeechService _speechService = SpeechService();
+
+  @override
+  void initState() {
+    super.initState();
+    _messages.add({
+      'role': 'assistant',
+      'content':
+          'Hello! I\'m your emotional diary. Feel free to share your thoughts and feelings with me. I\'m here to listen and support you.',
+    });
+  }
+
+  @override
+  void dispose() {
+    _messageController.dispose();
+    _speechService.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleSend() async {
+    final message = _messageController.text;
+    if (message.isNotEmpty) {
+      _messageController.clear();
+
+      setState(() {
+        _messages.add({
+          'role': 'user',
+          'content': message,
+        });
+        _isLoading = true;
+      });
+
+      try {
+        final response = await AiService.getEmotionalSupportResponse(message);
+        setState(() {
+          _messages.add({
+            'role': 'assistant',
+            'content': response,
+          });
+          _isLoading = false;
+        });
+        _speechService.speak(response);
+      } catch (e) {
+        setState(() {
+          print('Error in AI response: $e');
+          _messages.add({
+            'role': 'assistant',
+            'content':
+                'I apologize, but I encountered an issue while processing your request. Please try again later.',
+          });
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _toggleListening() async {
+    if (!_isListening) {
+      final success = await _speechService.startListening((text) {
+        setState(() {
+          _isListening = false;
+          _messageController.text = text;
+        });
+        _handleSend();
+      });
+
+      setState(() {
+        _isListening = success;
+      });
+    } else {
+      _speechService.stopListening();
+      setState(() {
+        _isListening = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Column(
       children: [
-        Card(
-          child: Padding(
+        Expanded(
+          child: ListView.builder(
             padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'New Entry',
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  decoration: InputDecoration(
-                    labelText: 'How are you feeling?',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  maxLines: 3,
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    for (var emotion in ['Happy', 'Sad', 'Anxious', 'Calm'])
-                      Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: FilterChip(
-                          label: Text(emotion),
-                          selected: false,
-                          onSelected: (bool selected) {},
+            reverse: true,
+            itemCount: _messages.length + (_isLoading ? 1 : 0),
+            itemBuilder: (context, index) {
+              if (_isLoading && index == 0) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: colorScheme.secondaryContainer,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  colorScheme.primary,
+                                ),
+                              ),
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              'Listening to your thoughts...',
+                              style: TextStyle(
+                                color: colorScheme.onSecondaryContainer,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () {},
-                  child: const Text('Save Entry'),
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: Size(double.infinity, 48),
+                    ],
                   ),
-                ),
-              ],
-            ),
+                );
+              }
+
+              final messageIndex = _isLoading ? index - 1 : index;
+              final message = _messages.reversed.toList()[messageIndex];
+              return ChatMessage(
+                message: message['content'] as String,
+                isUser: message['role'] == 'user',
+              );
+            },
           ),
         ),
-        const SizedBox(height: 24),
-        Text(
-          'Previous Entries',
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 16),
-        for (var i = 1; i <= 5; i++)
-          Card(
-            margin: const EdgeInsets.only(bottom: 8),
-            child: ListTile(
-              title: Text('Feeling ${i % 2 == 0 ? 'Happy' : 'Calm'}'),
-              subtitle: Text('Today at ${10 - i}:00 AM'),
-              leading: CircleAvatar(
-                backgroundColor: colorScheme.primaryContainer,
-                child: Icon(
-                  i % 2 == 0
-                      ? Icons.sentiment_satisfied
-                      : Icons.sentiment_neutral,
-                  color: colorScheme.primary,
-                ),
-              ),
-              trailing: IconButton(
-                icon: Icon(Icons.chevron_right),
-                onPressed: () {},
-              ),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: colorScheme.surface,
+            border: Border(
+              top: BorderSide(color: colorScheme.outline.withOpacity(0.2)),
             ),
           ),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _messageController,
+                  decoration: InputDecoration(
+                    hintText: 'Share your feelings...',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                  ),
+                  maxLines: null,
+                  textInputAction: TextInputAction.send,
+                  onSubmitted: (_) => _handleSend(),
+                ),
+              ),
+              const SizedBox(width: 8),
+              FloatingActionButton(
+                onPressed: _isListening ? null : _toggleListening,
+                mini: true,
+                child: Icon(_isListening ? Icons.mic : Icons.mic_none),
+              ),
+              const SizedBox(width: 8),
+              FloatingActionButton(
+                onPressed: _isLoading ? null : _handleSend,
+                child: Icon(_isLoading ? Icons.hourglass_empty : Icons.send),
+                mini: true,
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }

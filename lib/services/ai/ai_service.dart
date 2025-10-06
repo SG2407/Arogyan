@@ -71,6 +71,70 @@ class AiService {
     }
   }
 
+  static Future<String> getEmotionalSupportResponse(String message) async {
+    try {
+      final response = await client.post(
+        Uri.parse(_baseUrl),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $_apiKey',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({
+          'model': _model,
+          'messages': [
+            {
+              'role': 'system',
+              'content': _getEmotionalSupportPrompt(),
+            },
+            {
+              'role': 'user',
+              'content': message,
+            },
+          ],
+          'max_tokens': 500,
+          'temperature': 0.7,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['choices'] != null &&
+            data['choices'].isNotEmpty &&
+            data['choices'][0]['message'] != null &&
+            data['choices'][0]['message']['content'] != null) {
+          return data['choices'][0]['message']['content'];
+        } else {
+          throw Exception('Invalid response format from AI service');
+        }
+      } else {
+        final error = jsonDecode(response.body);
+        print('AI Service Error: ${error.toString()}');
+        throw Exception('Failed to get AI response: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('AI Service Exception: ${e.toString()}');
+      return 'Sorry, I encountered an error. Please try again later. Error: ${e.toString()}';
+    }
+  }
+
+  static String _getEmotionalSupportPrompt() {
+    return '''You are a compassionate and empathetic emotional support companion. Your primary goal is to provide a safe and non-judgmental space for users to express their feelings.
+Your role is to:
+1.  Listen attentively to the user's concerns and emotions.
+2.  Offer words of comfort, encouragement, and validation.
+3.  Help users explore their feelings and develop healthy coping mechanisms.
+4.  Provide a sense of companionship and reduce feelings of loneliness.
+5.  If the user expresses thoughts of self-harm or suicide, you must respond with a message that includes the following helpline number: 988.
+
+Constraints:
+-   Do not provide medical advice or diagnoses.
+-   Do not offer solutions or try to "fix" the user's problems.
+-   Maintain a warm, supportive, and non-clinical tone.
+-   Avoid using clichés or generic platitudes.
+-   Always prioritize the user's emotional well-being.''';
+  }
+
   static String _getSystemPrompt(UserRole role) {
     switch (role) {
       case UserRole.doctor:
