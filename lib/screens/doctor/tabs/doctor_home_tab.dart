@@ -12,13 +12,6 @@ class DoctorHomeTab extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Hello, Dr. Smith',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-          ),
-          const SizedBox(height: 8),
-          Text(
             'Welcome to your dashboard',
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                   color: Theme.of(context)

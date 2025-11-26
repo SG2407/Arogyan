@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:aarogyan/widgets/dashboard_tile.dart';
 
 class PatientHomeTab extends StatelessWidget {
-  const PatientHomeTab({Key? key}) : super(key: key);
+  final Function(int)? onTabSelected;
+
+  const PatientHomeTab({Key? key, this.onTabSelected}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -11,13 +14,6 @@ class PatientHomeTab extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Hello, John',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-          ),
-          const SizedBox(height: 8),
           Text(
             'How are you feeling today?',
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
@@ -28,6 +24,13 @@ class PatientHomeTab extends StatelessWidget {
                 ),
           ),
           const SizedBox(height: 24),
+          Text(
+            'Quick Access',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+          const SizedBox(height: 12),
           GridView.count(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -39,25 +42,54 @@ class PatientHomeTab extends StatelessWidget {
                 title: 'Emotional Diary',
                 subtitle: 'Record your feelings',
                 icon: Icons.book,
-                onTap: () {},
+                onTap: () => onTabSelected?.call(1),
               ),
               DashboardTile(
                 title: 'Mood Tracker',
                 subtitle: 'Track your progress',
                 icon: Icons.mood,
-                onTap: () {},
+                onTap: () => onTabSelected?.call(2),
               ),
               DashboardTile(
                 title: 'Documents',
                 subtitle: 'Store medical records',
                 icon: Icons.description,
-                onTap: () {},
+                onTap: () => onTabSelected?.call(3),
               ),
               DashboardTile(
                 title: 'AI Assistant',
                 subtitle: 'Get guidance',
                 icon: Icons.chat,
-                onTap: () {},
+                onTap: () => onTabSelected?.call(4),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Health Agents',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+          const SizedBox(height: 12),
+          GridView.count(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: 2,
+            mainAxisSpacing: 16,
+            crossAxisSpacing: 16,
+            children: [
+              DashboardTile(
+                title: 'Diet Agent',
+                subtitle: 'Personalized diet plans',
+                icon: Icons.restaurant,
+                onTap: () => context.go('/diet-agent'),
+              ),
+              DashboardTile(
+                title: 'Fitness Coach',
+                subtitle: 'Exercise routines',
+                icon: Icons.fitness_center,
+                onTap: () => context.go('/fitness-agent'),
               ),
             ],
           ),

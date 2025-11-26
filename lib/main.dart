@@ -7,11 +7,16 @@ import 'package:aarogyan/screens/auth/login_screen.dart';
 import 'package:aarogyan/screens/auth/signup_screen.dart';
 import 'package:aarogyan/screens/doctor/doctor_dashboard.dart';
 import 'package:aarogyan/screens/patient/patient_home.dart';
-
+import 'package:aarogyan/screens/patient/diet_agent_screen.dart';
+import 'package:aarogyan/screens/patient/fitness_agent_screen.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:aarogyan/services/local_db.dart';
 
 Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: ".env");
+  // Initialize local on-device DB
+  await LocalDb.init();
   runApp(
     ChangeNotifierProvider(
       create: (_) => ThemeProvider(),
@@ -42,6 +47,14 @@ final _router = GoRouter(
     GoRoute(
       path: '/patient',
       builder: (context, state) => const PatientHome(),
+    ),
+    GoRoute(
+      path: '/diet-agent',
+      builder: (context, state) => const DietAgentScreen(),
+    ),
+    GoRoute(
+      path: '/fitness-agent',
+      builder: (context, state) => const FitnessAgentScreen(),
     ),
   ],
 );

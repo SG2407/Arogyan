@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:aarogyan/services/ai/ai_service.dart';
 import 'package:aarogyan/services/speech/speech_service.dart';
 import 'package:aarogyan/widgets/chat_message.dart';
+import 'package:aarogyan/widgets/chat_history_dialog.dart';
 
 class EmotionalDiaryTab extends StatefulWidget {
   const EmotionalDiaryTab({Key? key}) : super(key: key);
@@ -92,110 +93,131 @@ class _EmotionalDiaryTabState extends State<EmotionalDiaryTab> {
     }
   }
 
+  void _showHistory() {
+    showDialog(
+      context: context,
+      builder: (context) => ChatHistoryDialog(
+        messages: _messages,
+        title: 'Emotional Diary',
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Column(
-      children: [
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.all(16),
-            reverse: true,
-            itemCount: _messages.length + (_isLoading ? 1 : 0),
-            itemBuilder: (context, index) {
-              if (_isLoading && index == 0) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8.0),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: colorScheme.secondaryContainer,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  colorScheme.primary,
+    return Scaffold(
+      appBar: AppBar(
+        toolbarHeight: 48,
+        title: const Text('Emotional Diary'),
+        leading: IconButton(
+          icon: const Icon(Icons.history),
+          onPressed: _showHistory,
+          tooltip: 'View history',
+        ),
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.all(16),
+              reverse: true,
+              itemCount: _messages.length + (_isLoading ? 1 : 0),
+              itemBuilder: (context, index) {
+                if (_isLoading && index == 0) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: colorScheme.secondaryContainer,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    colorScheme.primary,
+                                  ),
                                 ),
                               ),
-                            ),
-                            SizedBox(width: 8),
-                            Text(
-                              'Listening to your thoughts...',
-                              style: TextStyle(
-                                color: colorScheme.onSecondaryContainer,
+                              SizedBox(width: 8),
+                              Text(
+                                'Listening to your thoughts...',
+                                style: TextStyle(
+                                  color: colorScheme.onSecondaryContainer,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                );
-              }
+                      ],
+                    ),
+                  );
+                }
 
-              final messageIndex = _isLoading ? index - 1 : index;
-              final message = _messages.reversed.toList()[messageIndex];
-              return ChatMessage(
-                message: message['content'] as String,
-                isUser: message['role'] == 'user',
-              );
-            },
-          ),
-        ),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: colorScheme.surface,
-            border: Border(
-              top: BorderSide(color: colorScheme.outline.withOpacity(0.2)),
+                final messageIndex = _isLoading ? index - 1 : index;
+                final message = _messages.reversed.toList()[messageIndex];
+                return ChatMessage(
+                  message: message['content'] as String,
+                  isUser: message['role'] == 'user',
+                );
+              },
             ),
           ),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _messageController,
-                  decoration: InputDecoration(
-                    hintText: 'Share your feelings...',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(24),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: colorScheme.surface,
+              border: Border(
+                top: BorderSide(color: colorScheme.outline.withOpacity(0.2)),
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _messageController,
+                    decoration: InputDecoration(
+                      hintText: 'Share your feelings...',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
                     ),
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
+                    maxLines: null,
+                    textInputAction: TextInputAction.send,
+                    onSubmitted: (_) => _handleSend(),
                   ),
-                  maxLines: null,
-                  textInputAction: TextInputAction.send,
-                  onSubmitted: (_) => _handleSend(),
                 ),
-              ),
-              const SizedBox(width: 8),
-              FloatingActionButton(
-                onPressed: _isListening ? null : _toggleListening,
-                mini: true,
-                child: Icon(_isListening ? Icons.mic : Icons.mic_none),
-              ),
-              const SizedBox(width: 8),
-              FloatingActionButton(
-                onPressed: _isLoading ? null : _handleSend,
-                child: Icon(_isLoading ? Icons.hourglass_empty : Icons.send),
-                mini: true,
-              ),
-            ],
+                const SizedBox(width: 8),
+                FloatingActionButton(
+                  onPressed: _isListening ? null : _toggleListening,
+                  mini: true,
+                  child: Icon(_isListening ? Icons.mic : Icons.mic_none),
+                ),
+                const SizedBox(width: 8),
+                FloatingActionButton(
+                  onPressed: _isLoading ? null : _handleSend,
+                  child: Icon(_isLoading ? Icons.hourglass_empty : Icons.send),
+                  mini: true,
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

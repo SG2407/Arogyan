@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:aarogyan/services/user_service.dart';
+import 'package:aarogyan/services/session_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -23,11 +25,23 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _handleLogin() {
     if (_formKey.currentState!.validate()) {
-      // For demo, always navigate based on user type selection
-      if (_isDoctor) {
-        context.go('/doctor');
+      final user = UserService.login(
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+        isDoctor: _isDoctor,
+      );
+      if (user != null) {
+        // set session to logged in user
+        SessionService.setCurrentUserId(user['id'] as String);
+        if (_isDoctor) {
+          context.go('/doctor');
+        } else {
+          context.go('/patient');
+        }
       } else {
-        context.go('/patient');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Invalid credentials')),
+        );
       }
     }
   }

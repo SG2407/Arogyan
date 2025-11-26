@@ -7,6 +7,8 @@ import 'package:aarogyan/screens/patient/tabs/emotional_diary_tab.dart';
 import 'package:aarogyan/screens/patient/tabs/mood_tracker_tab.dart';
 import 'package:aarogyan/screens/patient/tabs/patient_document_analysis_tab.dart';
 import 'package:aarogyan/screens/patient/tabs/patient_ai_assistant_tab.dart';
+import 'package:aarogyan/services/session_service.dart';
+import 'package:aarogyan/services/user_service.dart';
 
 class PatientHome extends StatefulWidget {
   const PatientHome({Key? key}) : super(key: key);
@@ -17,14 +19,33 @@ class PatientHome extends StatefulWidget {
 
 class _PatientHomeState extends State<PatientHome> {
   int _selectedIndex = 0;
+  late final List<Widget> _pages;
+  String _userName = 'Patient';
 
-  final List<Widget> _pages = const [
-    PatientHomeTab(),
-    EmotionalDiaryTab(),
-    MoodTrackerTab(),
-    PatientDocumentAnalysisTab(),
-    PatientAiAssistantTab(),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _pages = [
+      PatientHomeTab(onTabSelected: _onItemTapped),
+      const EmotionalDiaryTab(),
+      const MoodTrackerTab(),
+      const PatientDocumentAnalysisTab(),
+      const PatientAiAssistantTab(),
+    ];
+    _loadUserName();
+  }
+
+  void _loadUserName() {
+    final userId = SessionService.getCurrentUserId();
+    if (userId != null) {
+      final user = UserService.getUserById(userId);
+      if (user != null) {
+        setState(() {
+          _userName = user['name'] as String? ?? 'Patient';
+        });
+      }
+    }
+  }
 
   void _onItemTapped(int index) {
     setState(() {
@@ -36,7 +57,7 @@ class _PatientHomeState extends State<PatientHome> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Patient Dashboard'),
+        title: Text('Welcome, $_userName'),
         actions: [
           IconButton(
             icon: Icon(

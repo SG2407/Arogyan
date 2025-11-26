@@ -9,7 +9,11 @@ enum UserRole {
 
 class AiService {
   static String get _apiKey => dotenv.env['GRK_API_KEY'] ?? '';
-  static const String _baseUrl =
+  // Allow overriding the API base URL via environment (useful for local testing
+  // or if Groq changes endpoints). If not set, fall back to the known Groq
+  // OpenAI-compatible chat completions endpoint.
+  static String get _baseUrl =>
+      dotenv.env['API_BASE_URL'] ??
       'https://api.groq.com/openai/v1/chat/completions';
   static const String _model = 'meta-llama/llama-4-scout-17b-16e-instruct';
   static http.Client? _client;

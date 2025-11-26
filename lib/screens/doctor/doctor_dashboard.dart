@@ -7,6 +7,8 @@ import 'package:aarogyan/screens/doctor/tabs/patient_management_tab.dart';
 import 'package:aarogyan/screens/doctor/tabs/ocr_processing_tab.dart';
 import 'package:aarogyan/screens/doctor/tabs/ai_assistant_tab.dart';
 import 'package:aarogyan/screens/doctor/tabs/ai_insights_tab.dart';
+import 'package:aarogyan/services/session_service.dart';
+import 'package:aarogyan/services/user_service.dart';
 
 class DoctorDashboard extends StatefulWidget {
   const DoctorDashboard({Key? key}) : super(key: key);
@@ -17,6 +19,7 @@ class DoctorDashboard extends StatefulWidget {
 
 class _DoctorDashboardState extends State<DoctorDashboard> {
   int _selectedIndex = 0;
+  String _userName = 'Doctor';
 
   final List<Widget> _pages = const [
     DoctorHomeTab(),
@@ -25,6 +28,24 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
     AiAssistantTab(),
     AiInsightsTab(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserName();
+  }
+
+  void _loadUserName() {
+    final userId = SessionService.getCurrentUserId();
+    if (userId != null) {
+      final user = UserService.getUserById(userId);
+      if (user != null) {
+        setState(() {
+          _userName = user['name'] as String? ?? 'Doctor';
+        });
+      }
+    }
+  }
 
   void _onItemTapped(int index) {
     setState(() {
@@ -36,7 +57,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Doctor Dashboard'),
+        title: Text('Welcome, $_userName'),
         actions: [
           IconButton(
             icon: Icon(

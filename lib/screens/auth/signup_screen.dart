@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:aarogyan/services/user_service.dart';
+import 'package:aarogyan/services/session_service.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({Key? key}) : super(key: key);
@@ -23,14 +25,30 @@ class _SignupScreenState extends State<SignupScreen> {
     super.dispose();
   }
 
-  void _handleSignup() {
-    if (_formKey.currentState!.validate()) {
-      // For demo, always navigate based on user type selection
+  Future<void> _handleSignup() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    try {
+      final id = await UserService.registerUser(
+        name: _nameController.text.trim(),
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+        isDoctor: _isDoctor,
+      );
+
+      if (!mounted) return;
+      // Set session to the newly created user
+      SessionService.setCurrentUserId(id);
       if (_isDoctor) {
         context.go('/doctor');
       } else {
         context.go('/patient');
       }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
     }
   }
 

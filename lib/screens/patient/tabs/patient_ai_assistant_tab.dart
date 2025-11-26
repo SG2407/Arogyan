@@ -3,6 +3,9 @@ import 'package:aarogyan/services/ai/ai_service.dart';
 import 'package:aarogyan/services/speech/speech_service.dart';
 import 'package:aarogyan/services/emotion/emotion_analysis.dart';
 import 'package:aarogyan/widgets/chat_message.dart';
+import 'package:aarogyan/services/chat_service.dart';
+import 'package:aarogyan/services/session_service.dart';
+import 'package:aarogyan/widgets/chat_history_dialog.dart';
 
 class PatientAiAssistantTab extends StatefulWidget {
   const PatientAiAssistantTab({Key? key}) : super(key: key);
@@ -22,12 +25,26 @@ class _PatientAiAssistantTabState extends State<PatientAiAssistantTab> {
   @override
   void initState() {
     super.initState();
-    // Add initial welcome message
-    _messages.add({
-      'role': 'assistant',
-      'content':
-          'Hello! I\'m your health assistant. I can help you understand health issues and provide general guidance. How can I help you today?',
-    });
+    // Load persisted messages for the current user if available; otherwise add welcome message
+    final userId = SessionService.getCurrentUserId();
+    if (userId != null) {
+      final saved = ChatService.getMessages(userId);
+      if (saved.isNotEmpty) {
+        _messages.addAll(saved);
+      } else {
+        _messages.add({
+          'role': 'assistant',
+          'content':
+              'Hello! I\'m your health assistant. I can help you understand health issues and provide general guidance. How can I help you today?',
+        });
+      }
+    } else {
+      _messages.add({
+        'role': 'assistant',
+        'content':
+            'Hello! I\'m your health assistant. I can help you understand health issues and provide general guidance. How can I help you today?',
+      });
+    }
   }
 
   @override
@@ -61,10 +78,21 @@ class _PatientAiAssistantTabState extends State<PatientAiAssistantTab> {
         _messages.add({
           'role': 'user',
           'content': message,
+          'timestamp': DateTime.now().toIso8601String(),
         });
         _isLoading = true;
       });
-      
+
+      // persist user message if session exists
+      final userId = SessionService.getCurrentUserId();
+      if (userId != null) {
+        await ChatService.saveMessage(userId, {
+          'role': 'user',
+          'content': message,
+          'timestamp': DateTime.now().toIso8601String(),
+        });
+      }
+
       // Analyze emotion from user's message
       _analyzeEmotion(message);
 
@@ -75,9 +103,19 @@ class _PatientAiAssistantTabState extends State<PatientAiAssistantTab> {
           _messages.add({
             'role': 'assistant',
             'content': response,
+            'timestamp': DateTime.now().toIso8601String(),
           });
           _isLoading = false;
         });
+
+        final userId = SessionService.getCurrentUserId();
+        if (userId != null) {
+          await ChatService.saveMessage(userId, {
+            'role': 'assistant',
+            'content': response,
+            'timestamp': DateTime.now().toIso8601String(),
+          });
+        }
       } catch (e) {
         setState(() {
           print('Error in AI response: $e');
@@ -116,7 +154,7 @@ class _PatientAiAssistantTabState extends State<PatientAiAssistantTab> {
   void _analyzeEmotion(String text) {
     final emotions = EmotionAnalysis.analyzeText(text);
     final predominantEmotion = EmotionAnalysis.getPredominantEmotion(emotions);
-    
+
     if (_currentEmotion != predominantEmotion) {
       setState(() {
         _currentEmotion = predominantEmotion;
@@ -131,113 +169,134 @@ class _PatientAiAssistantTabState extends State<PatientAiAssistantTab> {
     }
   }
 
+  void _showHistory() {
+    showDialog(
+      context: context,
+      builder: (context) => ChatHistoryDialog(
+        messages: _messages,
+        title: 'AI Assistant',
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Column(
-      children: [
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.all(16),
-            reverse: true,
-            itemCount: _messages.length + (_isLoading ? 1 : 0),
-            itemBuilder: (context, index) {
-              if (_isLoading && index == 0) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8.0),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: colorScheme.secondaryContainer,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  colorScheme.primary,
+    return Scaffold(
+      appBar: AppBar(
+        toolbarHeight: 48,
+        title: const Text('AI Assistant'),
+        leading: IconButton(
+          icon: const Icon(Icons.history),
+          onPressed: _showHistory,
+          tooltip: 'View history',
+        ),
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.all(16),
+              reverse: true,
+              itemCount: _messages.length + (_isLoading ? 1 : 0),
+              itemBuilder: (context, index) {
+                if (_isLoading && index == 0) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: colorScheme.secondaryContainer,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    colorScheme.primary,
+                                  ),
                                 ),
                               ),
-                            ),
-                            SizedBox(width: 8),
-                            Text(
-                              'Analyzing your health query...',
-                              style: TextStyle(
-                                color: colorScheme.onSecondaryContainer,
+                              SizedBox(width: 8),
+                              Text(
+                                'Analyzing your health query...',
+                                style: TextStyle(
+                                  color: colorScheme.onSecondaryContainer,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                );
-              }
+                      ],
+                    ),
+                  );
+                }
 
-              final messageIndex = _isLoading ? index - 1 : index;
-              final message = _messages.reversed.toList()[messageIndex];
-              return ChatMessage(
-                message: message['content'] as String,
-                isUser: message['role'] == 'user',
-                emotion: message['emotion'] as String?,
-              );
-            },
-          ),
-        ),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: colorScheme.surface,
-            border: Border(
-              top: BorderSide(color: colorScheme.outline.withOpacity(0.2)),
+                final messageIndex = _isLoading ? index - 1 : index;
+                final message = _messages.reversed.toList()[messageIndex];
+                return ChatMessage(
+                  message: message['content'] as String,
+                  isUser: message['role'] == 'user',
+                  emotion: message['emotion'] as String?,
+                );
+              },
             ),
           ),
-          child: Row(
-            children: [
-              IconButton(
-                onPressed: _toggleListening,
-                icon: Icon(
-                  _isListening ? Icons.mic : Icons.mic_none,
-                  color: _isListening ? colorScheme.primary : null,
-                ),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: colorScheme.surface,
+              border: Border(
+                top: BorderSide(color: colorScheme.outline.withOpacity(0.2)),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: TextField(
-                  controller: _messageController,
-                  decoration: InputDecoration(
-                    hintText: 'Type your message...',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
+            ),
+            child: Row(
+              children: [
+                IconButton(
+                  onPressed: _toggleListening,
+                  icon: Icon(
+                    _isListening ? Icons.mic : Icons.mic_none,
+                    color: _isListening ? colorScheme.primary : null,
                   ),
-                  maxLines: null,
-                  textInputAction: TextInputAction.send,
-                  onSubmitted: (_) => _handleSend(),
                 ),
-              ),
-              const SizedBox(width: 8),
-              FloatingActionButton(
-                onPressed: _handleSend,
-                child: Icon(Icons.send),
-                mini: true,
-              ),
-            ],
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: _messageController,
+                    decoration: InputDecoration(
+                      hintText: 'Type your message...',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                    ),
+                    maxLines: null,
+                    textInputAction: TextInputAction.send,
+                    onSubmitted: (_) => _handleSend(),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                FloatingActionButton(
+                  onPressed: _handleSend,
+                  child: Icon(Icons.send),
+                  mini: true,
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
