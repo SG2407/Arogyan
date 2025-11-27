@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:aarogyan/services/ocr/ocr_service.dart';
 import 'package:aarogyan/services/ai/ai_service.dart';
@@ -68,124 +69,132 @@ class _PatientDocumentAnalysisTabState
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Document Analysis',
-            style: Theme.of(context).textTheme.headlineMedium,
-          ),
-          const SizedBox(height: 16),
-          DropdownButtonFormField<DocumentType>(
-            value: _selectedType,
-            decoration: InputDecoration(
-              labelText: 'Document Type',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Document Analysis'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/patient');
+            }
+          },
+          tooltip: 'Go back',
+        ),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            DropdownButtonFormField<DocumentType>(
+              value: _selectedType,
+              decoration: InputDecoration(
+                labelText: 'Document Type',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
+              items: const [
+                DropdownMenuItem(
+                  value: DocumentType.prescription,
+                  child: Text('Prescription'),
+                ),
+                DropdownMenuItem(
+                  value: DocumentType.labReport,
+                  child: Text('Lab Report'),
+                ),
+                DropdownMenuItem(
+                  value: DocumentType.other,
+                  child: Text('Other Medical Document'),
+                ),
+              ],
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() {
+                    _selectedType = value;
+                  });
+                }
+              },
             ),
-            items: const [
-              DropdownMenuItem(
-                value: DocumentType.prescription,
-                child: Text('Prescription'),
-              ),
-              DropdownMenuItem(
-                value: DocumentType.labReport,
-                child: Text('Lab Report'),
-              ),
-              DropdownMenuItem(
-                value: DocumentType.other,
-                child: Text('Other Medical Document'),
-              ),
-            ],
-            onChanged: (value) {
-              if (value != null) {
-                setState(() {
-                  _selectedType = value;
-                });
-              }
-            },
-          ),
-          const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              ElevatedButton.icon(
-                onPressed: _isProcessing
-                    ? null
-                    : () => _processDocument(ImageSource.camera),
-                icon: const Icon(Icons.camera_alt),
-                label: const Text('Take Photo'),
-              ),
-              ElevatedButton.icon(
-                onPressed: _isProcessing
-                    ? null
-                    : () => _processDocument(ImageSource.gallery),
-                icon: const Icon(Icons.photo_library),
-                label: const Text('Upload Document'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          Expanded(
-            child: _isProcessing
-                ? const Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        CircularProgressIndicator(),
-                        SizedBox(height: 16),
-                        Text('Processing document...'),
-                      ],
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: _isProcessing
+                      ? null
+                      : () => _processDocument(ImageSource.camera),
+                  icon: const Icon(Icons.camera_alt),
+                  label: const Text('Take Photo'),
+                ),
+                ElevatedButton.icon(
+                  onPressed: _isProcessing
+                      ? null
+                      : () => _processDocument(ImageSource.gallery),
+                  icon: const Icon(Icons.photo_library),
+                  label: const Text('Upload Document'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            if (_isProcessing)
+              const Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text('Processing document...'),
+                  ],
+                ),
+              )
+            else
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (_extractedText.isNotEmpty) ...[
+                    Text(
+                      'Extracted Text:',
+                      style: Theme.of(context).textTheme.titleMedium,
                     ),
-                  )
-                : SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (_extractedText.isNotEmpty) ...[
-                          Text(
-                            'Extracted Text:',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: 8),
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: colorScheme.surfaceVariant,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(_extractedText),
-                          ),
-                          const SizedBox(height: 24),
-                        ],
-                        if (_explanation.isNotEmpty) ...[
-                          Text(
-                            'Simple Explanation:',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: 8),
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: colorScheme.primaryContainer,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              _explanation,
-                              style: TextStyle(
-                                color: colorScheme.onPrimaryContainer,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceVariant,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(_extractedText),
                     ),
-                  ),
-          ),
-        ],
+                    const SizedBox(height: 24),
+                  ],
+                  if (_explanation.isNotEmpty) ...[
+                    Text(
+                      'Simple Explanation:',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        _explanation,
+                        style: TextStyle(
+                          color: colorScheme.onPrimaryContainer,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+          ],
+        ),
       ),
     );
   }

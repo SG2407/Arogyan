@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:aarogyan/services/session_service.dart';
+import 'package:aarogyan/services/user_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({Key? key}) : super(key: key);
@@ -38,9 +41,51 @@ class _SplashScreenState extends State<SplashScreen>
 
     _controller.forward().then((_) {
       Future.delayed(Duration(seconds: 1), () {
-        context.go('/login');
+        _checkSessionAndNavigate();
       });
     });
+  }
+
+  Future<void> _checkSessionAndNavigate() async {
+    final userId = SessionService.getCurrentUserId();
+    final isSessionActive = SessionService.isSessionActive();
+
+    if (userId != null && isSessionActive) {
+      // Session is active, check user role and navigate
+      final user = UserService.getUserById(userId);
+      if (user != null) {
+        final isDoctor = user['isDoctor'] as bool? ?? false;
+        if (mounted) {
+          context.go(isDoctor ? '/doctor' : '/patient');
+        }
+      }
+    } else if (mounted) {
+      // No active session, check for remembered credentials
+      final prefs = await SharedPreferences.getInstance();
+      final rememberMe = prefs.getBool('rememberMe') ?? false;
+
+      if (rememberMe && mounted) {
+        // Auto-login with remembered credentials
+        final email = prefs.getString('email') ?? '';
+        final password = prefs.getString('password') ?? '';
+        final isDoctor = prefs.getBool('isDoctor') ?? false;
+
+        final user = UserService.login(
+          email: email,
+          password: password,
+          isDoctor: isDoctor,
+        );
+
+        if (user != null && mounted) {
+          SessionService.setCurrentUserId(user['id'] as String);
+          context.go(isDoctor ? '/doctor' : '/patient');
+        } else if (mounted) {
+          context.go('/login');
+        }
+      } else if (mounted) {
+        context.go('/login');
+      }
+    }
   }
 
   @override

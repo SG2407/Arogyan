@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:aarogyan/services/user_service.dart';
 import 'package:aarogyan/services/session_service.dart';
 
@@ -15,6 +16,30 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isDoctor = false;
+  bool _rememberMe = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRememberedCredentials();
+  }
+
+  Future<void> _loadRememberedCredentials() async {
+    final prefs = await SharedPreferences.getInstance();
+    final rememberMe = prefs.getBool('rememberMe') ?? false;
+    if (rememberMe) {
+      final email = prefs.getString('email') ?? '';
+      final password = prefs.getString('password') ?? '';
+      final isDoctor = prefs.getBool('isDoctor') ?? false;
+
+      setState(() {
+        _emailController.text = email;
+        _passwordController.text = password;
+        _isDoctor = isDoctor;
+        _rememberMe = true;
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -31,6 +56,9 @@ class _LoginScreenState extends State<LoginScreen> {
         isDoctor: _isDoctor,
       );
       if (user != null) {
+        // Save remember me preferences
+        _saveRememberMePreferences();
+
         // set session to logged in user
         SessionService.setCurrentUserId(user['id'] as String);
         if (_isDoctor) {
@@ -43,6 +71,22 @@ class _LoginScreenState extends State<LoginScreen> {
           const SnackBar(content: Text('Invalid credentials')),
         );
       }
+    }
+  }
+
+  Future<void> _saveRememberMePreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (_rememberMe) {
+      await prefs.setString('email', _emailController.text.trim());
+      await prefs.setString('password', _passwordController.text.trim());
+      await prefs.setBool('isDoctor', _isDoctor);
+      await prefs.setBool('rememberMe', true);
+    } else {
+      // Clear saved credentials if remember me is unchecked
+      await prefs.remove('email');
+      await prefs.remove('password');
+      await prefs.remove('isDoctor');
+      await prefs.setBool('rememberMe', false);
     }
   }
 
@@ -119,6 +163,17 @@ class _LoginScreenState extends State<LoginScreen> {
                   },
                 ),
                 const SizedBox(height: 24),
+                SwitchListTile(
+                  title: const Text('Remember Me'),
+                  value: _rememberMe,
+                  onChanged: (bool value) {
+                    setState(() {
+                      _rememberMe = value;
+                    });
+                  },
+                  activeColor: colorScheme.primary,
+                ),
+                const SizedBox(height: 12),
                 SwitchListTile(
                   title: Text('I am a Doctor'),
                   value: _isDoctor,

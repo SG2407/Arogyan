@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:hive/hive.dart';
 import 'package:provider/provider.dart';
 import 'package:aarogyan/providers/language_provider.dart';
@@ -167,10 +168,24 @@ class _FitnessAgentScreenState extends State<FitnessAgentScreen> {
       appBar: AppBar(
         title: Text(AppStrings.get('fitnessAgent', lang)),
         leading: IconButton(
-          icon: const Icon(Icons.history),
-          onPressed: _showHistory,
-          tooltip: 'View history',
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              // Fallback to home if pop doesn't work
+              context.go('/patient');
+            }
+          },
+          tooltip: 'Go back',
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.history),
+            onPressed: _showHistory,
+            tooltip: 'View history',
+          ),
+        ],
       ),
       body: Column(
         children: [

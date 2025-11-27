@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:aarogyan/services/ai/ai_service.dart';
 import 'package:aarogyan/services/speech/speech_service.dart';
 import 'package:aarogyan/widgets/chat_message.dart';
@@ -112,10 +113,23 @@ class _EmotionalDiaryTabState extends State<EmotionalDiaryTab> {
         toolbarHeight: 48,
         title: const Text('Emotional Diary'),
         leading: IconButton(
-          icon: const Icon(Icons.history),
-          onPressed: _showHistory,
-          tooltip: 'View history',
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/patient');
+            }
+          },
+          tooltip: 'Go back',
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.history),
+            onPressed: _showHistory,
+            tooltip: 'View history',
+          ),
+        ],
       ),
       body: Column(
         children: [

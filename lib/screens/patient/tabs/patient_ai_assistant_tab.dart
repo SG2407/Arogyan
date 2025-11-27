@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:aarogyan/services/ai/ai_service.dart';
 import 'package:aarogyan/services/speech/speech_service.dart';
 import 'package:aarogyan/services/emotion/emotion_analysis.dart';
@@ -6,6 +7,8 @@ import 'package:aarogyan/widgets/chat_message.dart';
 import 'package:aarogyan/services/chat_service.dart';
 import 'package:aarogyan/services/session_service.dart';
 import 'package:aarogyan/widgets/chat_history_dialog.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:convert';
 
 class PatientAiAssistantTab extends StatefulWidget {
   const PatientAiAssistantTab({Key? key}) : super(key: key);
@@ -21,30 +24,36 @@ class _PatientAiAssistantTabState extends State<PatientAiAssistantTab> {
   bool _isListening = false;
   bool _isLoading = false;
   String _currentEmotion = 'neutral';
+  String? _selectedImageBase64;
+  final ImagePicker _imagePicker = ImagePicker();
 
   @override
   void initState() {
     super.initState();
-    // Load persisted messages for the current user if available; otherwise add welcome message
+    _loadHistory();
+  }
+
+  void _loadHistory() {
     final userId = SessionService.getCurrentUserId();
     if (userId != null) {
       final saved = ChatService.getMessages(userId);
       if (saved.isNotEmpty) {
-        _messages.addAll(saved);
+        _messages.addAll(saved.where((msg) => msg['agent'] == 'assistant'));
       } else {
-        _messages.add({
-          'role': 'assistant',
-          'content':
-              'Hello! I\'m your health assistant. I can help you understand health issues and provide general guidance. How can I help you today?',
-        });
+        _addWelcomeMessage();
       }
     } else {
-      _messages.add({
-        'role': 'assistant',
-        'content':
-            'Hello! I\'m your health assistant. I can help you understand health issues and provide general guidance. How can I help you today?',
-      });
+      _addWelcomeMessage();
     }
+  }
+
+  void _addWelcomeMessage() {
+    _messages.add({
+      'role': 'assistant',
+      'content':
+          'Hello! I\'m your health assistant. I can help you understand health issues and provide general guidance. How can I help you today?',
+      'timestamp': DateTime.now().toIso8601String(),
+    });
   }
 
   @override
@@ -56,78 +65,96 @@ class _PatientAiAssistantTabState extends State<PatientAiAssistantTab> {
 
   Future<void> _handleSend() async {
     final message = _messageController.text;
-    if (message.isNotEmpty) {
-      _messageController.clear();
+    if (message.isEmpty && _selectedImageBase64 == null) return;
 
-      if (!AiService.isHealthRelatedQuery(message)) {
-        setState(() {
-          _messages.add({
-            'role': 'user',
-            'content': message,
-          });
-          _messages.add({
-            'role': 'assistant',
-            'content':
-                'I can only help you with health-related questions. Please ask something about your health or medical care.',
-          });
-        });
-        return;
-      }
+    _messageController.clear();
 
+    if (message.isNotEmpty &&
+        _selectedImageBase64 == null &&
+        !AiService.isHealthRelatedQuery(message)) {
       setState(() {
         _messages.add({
           'role': 'user',
           'content': message,
           'timestamp': DateTime.now().toIso8601String(),
         });
-        _isLoading = true;
-      });
-
-      // persist user message if session exists
-      final userId = SessionService.getCurrentUserId();
-      if (userId != null) {
-        await ChatService.saveMessage(userId, {
-          'role': 'user',
-          'content': message,
+        _messages.add({
+          'role': 'assistant',
+          'content':
+              'I can only help you with health-related questions. Please ask something about your health or medical care.',
           'timestamp': DateTime.now().toIso8601String(),
         });
-      }
-
-      // Analyze emotion from user's message
-      _analyzeEmotion(message);
-
-      try {
-        final response =
-            await AiService.getAiResponse(message, UserRole.patient);
-        setState(() {
-          _messages.add({
-            'role': 'assistant',
-            'content': response,
-            'timestamp': DateTime.now().toIso8601String(),
-          });
-          _isLoading = false;
-        });
-
-        final userId = SessionService.getCurrentUserId();
-        if (userId != null) {
-          await ChatService.saveMessage(userId, {
-            'role': 'assistant',
-            'content': response,
-            'timestamp': DateTime.now().toIso8601String(),
-          });
-        }
-      } catch (e) {
-        setState(() {
-          print('Error in AI response: $e');
-          _messages.add({
-            'role': 'assistant',
-            'content':
-                'I apologize, but I encountered an issue while processing your request. Please try rephrasing your question or try again later.',
-          });
-          _isLoading = false;
-        });
-      }
+      });
+      return;
     }
+
+    setState(() {
+      _messages.add({
+        'role': 'user',
+        'content': message,
+        'photoBase64': _selectedImageBase64,
+        'timestamp': DateTime.now().toIso8601String(),
+        'agent': 'assistant',
+      });
+      _isLoading = true;
+    });
+
+    final userId = SessionService.getCurrentUserId();
+    if (userId != null) {
+      await ChatService.saveMessage(userId, {
+        'role': 'user',
+        'content': message,
+        'photoBase64': _selectedImageBase64,
+        'timestamp': DateTime.now().toIso8601String(),
+        'agent': 'assistant',
+      });
+    }
+
+    _analyzeEmotion(message);
+    _selectedImageBase64 = null;
+
+    try {
+      final response = await AiService.getAiResponse(message, UserRole.patient);
+      setState(() {
+        _messages.add({
+          'role': 'assistant',
+          'content': response,
+          'timestamp': DateTime.now().toIso8601String(),
+          'agent': 'assistant',
+        });
+        _isLoading = false;
+      });
+
+      if (userId != null) {
+        await ChatService.saveMessage(userId, {
+          'role': 'assistant',
+          'content': response,
+          'timestamp': DateTime.now().toIso8601String(),
+          'agent': 'assistant',
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _messages.add({
+          'role': 'assistant',
+          'content':
+              'I apologize, but I encountered an issue while processing your request. Please try rephrasing your question or try again later.',
+          'timestamp': DateTime.now().toIso8601String(),
+          'agent': 'assistant',
+        });
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _showHistory() {
+    showDialog(
+      context: context,
+      builder: (context) => ChatHistoryDialog(
+        messages: _messages,
+        title: 'AI Assistant',
+      ),
+    );
   }
 
   Future<void> _toggleListening() async {
@@ -151,6 +178,40 @@ class _PatientAiAssistantTabState extends State<PatientAiAssistantTab> {
     }
   }
 
+  Future<void> _captureImage() async {
+    try {
+      final XFile? image =
+          await _imagePicker.pickImage(source: ImageSource.camera);
+      if (image != null) {
+        final bytes = await image.readAsBytes();
+        setState(() {
+          _selectedImageBase64 = base64Encode(bytes);
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to capture image: $e')),
+      );
+    }
+  }
+
+  Future<void> _pickImageFromGallery() async {
+    try {
+      final XFile? image =
+          await _imagePicker.pickImage(source: ImageSource.gallery);
+      if (image != null) {
+        final bytes = await image.readAsBytes();
+        setState(() {
+          _selectedImageBase64 = base64Encode(bytes);
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to pick image: $e')),
+      );
+    }
+  }
+
   void _analyzeEmotion(String text) {
     final emotions = EmotionAnalysis.analyzeText(text);
     final predominantEmotion = EmotionAnalysis.getPredominantEmotion(emotions);
@@ -160,23 +221,14 @@ class _PatientAiAssistantTabState extends State<PatientAiAssistantTab> {
         _currentEmotion = predominantEmotion;
       });
 
-      // Add emotional response from AI
       _messages.add({
         'role': 'assistant',
         'content': EmotionAnalysis.getEmotionalResponse(predominantEmotion),
         'emotion': predominantEmotion,
+        'timestamp': DateTime.now().toIso8601String(),
+        'agent': 'assistant',
       });
     }
-  }
-
-  void _showHistory() {
-    showDialog(
-      context: context,
-      builder: (context) => ChatHistoryDialog(
-        messages: _messages,
-        title: 'AI Assistant',
-      ),
-    );
   }
 
   @override
@@ -188,10 +240,23 @@ class _PatientAiAssistantTabState extends State<PatientAiAssistantTab> {
         toolbarHeight: 48,
         title: const Text('AI Assistant'),
         leading: IconButton(
-          icon: const Icon(Icons.history),
-          onPressed: _showHistory,
-          tooltip: 'View history',
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/patient');
+            }
+          },
+          tooltip: 'Go back',
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.history),
+            onPressed: _showHistory,
+            tooltip: 'View history',
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -207,7 +272,7 @@ class _PatientAiAssistantTabState extends State<PatientAiAssistantTab> {
                     child: Row(
                       children: [
                         Container(
-                          padding: EdgeInsets.all(12),
+                          padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
                             color: colorScheme.secondaryContainer,
                             borderRadius: BorderRadius.circular(12),
@@ -225,7 +290,7 @@ class _PatientAiAssistantTabState extends State<PatientAiAssistantTab> {
                                   ),
                                 ),
                               ),
-                              SizedBox(width: 8),
+                              const SizedBox(width: 8),
                               Text(
                                 'Analyzing your health query...',
                                 style: TextStyle(
@@ -250,6 +315,15 @@ class _PatientAiAssistantTabState extends State<PatientAiAssistantTab> {
               },
             ),
           ),
+          if (_selectedImageBase64 != null)
+            Container(
+              padding: const EdgeInsets.all(8),
+              height: 100,
+              child: Image.memory(
+                base64Decode(_selectedImageBase64!),
+                fit: BoxFit.cover,
+              ),
+            ),
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -267,6 +341,39 @@ class _PatientAiAssistantTabState extends State<PatientAiAssistantTab> {
                     color: _isListening ? colorScheme.primary : null,
                   ),
                 ),
+                IconButton(
+                  icon: const Icon(Icons.attach_file),
+                  onPressed: () {
+                    showModalBottomSheet(
+                      context: context,
+                      builder: (BuildContext context) {
+                        return SafeArea(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              ListTile(
+                                leading: const Icon(Icons.camera_alt),
+                                title: const Text('Capture photo'),
+                                onTap: () {
+                                  Navigator.pop(context);
+                                  _captureImage();
+                                },
+                              ),
+                              ListTile(
+                                leading: const Icon(Icons.photo_library),
+                                title: const Text('Choose from gallery'),
+                                onTap: () {
+                                  Navigator.pop(context);
+                                  _pickImageFromGallery();
+                                },
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: TextField(
@@ -276,7 +383,7 @@ class _PatientAiAssistantTabState extends State<PatientAiAssistantTab> {
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(24),
                       ),
-                      contentPadding: EdgeInsets.symmetric(
+                      contentPadding: const EdgeInsets.symmetric(
                         horizontal: 16,
                         vertical: 12,
                       ),
@@ -289,7 +396,7 @@ class _PatientAiAssistantTabState extends State<PatientAiAssistantTab> {
                 const SizedBox(width: 8),
                 FloatingActionButton(
                   onPressed: _handleSend,
-                  child: Icon(Icons.send),
+                  child: const Icon(Icons.send),
                   mini: true,
                 ),
               ],

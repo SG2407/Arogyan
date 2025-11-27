@@ -33,7 +33,6 @@ class UserService {
       'isDoctor': isDoctor,
       'demographics': demographics ?? {},
       'medical': medical ?? {},
-      'profilePhoto': null, // Base64 encoded photo
       'createdAt': DateTime.now().toIso8601String(),
     };
 
@@ -74,8 +73,9 @@ class UserService {
         .toList();
   }
 
-  /// Update user profile photo (base64 encoded string)
-  static Future<void> updateProfilePhoto(String userId, String? photoBase64) async {
+  /// Update profile photo (base64 encoded image)
+  static Future<void> updateProfilePhoto(
+      String userId, String? photoBase64) async {
     final box = Hive.box<Map>(LocalDb.usersBox);
     final user = box.get(userId);
     if (user != null) {
@@ -84,7 +84,7 @@ class UserService {
     }
   }
 
-  /// Update user medical information
+  /// Update medical information (conditions, surgeries, allergies)
   static Future<void> updateMedicalInfo(
     String userId, {
     List<String>? conditions,
@@ -94,17 +94,16 @@ class UserService {
     final box = Hive.box<Map>(LocalDb.usersBox);
     final user = box.get(userId);
     if (user != null) {
-      if (user['medical'] == null) {
-        user['medical'] = {};
-      }
-      if (conditions != null) user['medical']['conditions'] = conditions;
-      if (surgeries != null) user['medical']['surgeries'] = surgeries;
-      if (allergies != null) user['medical']['allergies'] = allergies;
+      user['medical'] = {
+        'conditions': conditions ?? (user['medical']?['conditions'] ?? []),
+        'surgeries': surgeries ?? (user['medical']?['surgeries'] ?? []),
+        'allergies': allergies ?? (user['medical']?['allergies'] ?? []),
+      };
       await box.put(userId, user);
     }
   }
 
-  /// Update user demographics
+  /// Update demographics (age, gender, height, weight)
   static Future<void> updateDemographics(
     String userId, {
     int? age,
@@ -115,18 +114,17 @@ class UserService {
     final box = Hive.box<Map>(LocalDb.usersBox);
     final user = box.get(userId);
     if (user != null) {
-      if (user['demographics'] == null) {
-        user['demographics'] = {};
-      }
-      if (age != null) user['demographics']['age'] = age;
-      if (gender != null) user['demographics']['gender'] = gender;
-      if (height != null) user['demographics']['height'] = height;
-      if (weight != null) user['demographics']['weight'] = weight;
+      user['demographics'] = {
+        'age': age ?? (user['demographics']?['age'] ?? 0),
+        'gender': gender ?? (user['demographics']?['gender'] ?? ''),
+        'height': height ?? (user['demographics']?['height'] ?? 0.0),
+        'weight': weight ?? (user['demographics']?['weight'] ?? 0.0),
+      };
       await box.put(userId, user);
     }
   }
 
-  /// Change user email (requires password verification)
+  /// Change email with password verification
   static Future<bool> changeEmail(
     String userId,
     String newEmail,
@@ -137,13 +135,22 @@ class UserService {
     if (user == null) return false;
 
     // Verify password
-    if (user['password'] != password) return false;
+    if (user['password'] != password) {
+      return false;
+    }
 
-    // Check if email already exists
-    final existing = box.values.any((u) => u['email'] == newEmail && u['id'] != userId);
-    if (existing) return false;
+    // Check if new email already exists
+    final existing = box.values.firstWhere(
+      (m) => m['email'] == newEmail && m['id'] != userId,
+      orElse: () => {},
+    );
+    if (existing.isNotEmpty) {
+      return false;
+    }
 
+    // Update email
     user['email'] = newEmail;
     await box.put(userId, user);
     return true;
   }
+}
