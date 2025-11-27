@@ -6,6 +6,7 @@ class LocalDb {
   static const String docsBox = 'docs_box';
   static const String notesBox = 'notes_box';
   static const String sessionBox = 'session_box';
+  static const String moodsBox = 'moods';
 
   static Future<void> init() async {
     await Hive.initFlutter();
@@ -15,5 +16,6 @@ class LocalDb {
     await Hive.openBox<Map>(docsBox);
     await Hive.openBox<Map>(notesBox);
     await Hive.openBox<Map>(sessionBox);
+    await Hive.openBox<dynamic>(moodsBox);
   }
 }

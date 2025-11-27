@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:aarogyan/services/ai/ai_service.dart';
 import 'package:aarogyan/services/speech/speech_service.dart';
+import 'package:aarogyan/services/session_service.dart';
+import 'package:aarogyan/services/mood_analysis_service.dart';
 import 'package:aarogyan/widgets/chat_message.dart';
 import 'package:aarogyan/widgets/chat_history_dialog.dart';
 
@@ -32,6 +34,7 @@ class _EmotionalDiaryTabState extends State<EmotionalDiaryTab> {
   @override
   void dispose() {
     _messageController.dispose();
+    _speechService.stopSpeaking();
     _speechService.dispose();
     super.dispose();
   }
@@ -59,6 +62,22 @@ class _EmotionalDiaryTabState extends State<EmotionalDiaryTab> {
           _isLoading = false;
         });
         _speechService.speak(response);
+
+        // Analyze mood after each exchange
+        final userId = SessionService.getCurrentUserId();
+        print('DEBUG: Mood analysis - userId: $userId');
+        if (userId != null) {
+          print('DEBUG: Analyzing mood from ${_messages.length} messages');
+          final moodEntry =
+              await MoodAnalysisService.analyzeMoodFromConversation(
+            userId,
+            _messages,
+          );
+          print(
+              'DEBUG: Mood entry created - mood: ${moodEntry.mood}, score: ${moodEntry.moodScore}');
+          await MoodAnalysisService.saveMoodEntry(userId, moodEntry);
+          print('DEBUG: Mood entry saved successfully');
+        }
       } catch (e) {
         setState(() {
           print('Error in AI response: $e');

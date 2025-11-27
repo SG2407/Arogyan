@@ -57,9 +57,14 @@ class SpeechService {
     await _speech.stop();
   }
 
+  Future<void> stopSpeaking() async {
+    await _flutterTts.stop();
+  }
+
   bool get isListening => _speech.isListening;
 
   void dispose() {
     _speech.stop();
+    _flutterTts.stop();
   }
 }
